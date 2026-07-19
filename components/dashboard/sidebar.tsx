@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import {
   LayoutDashboard,
   ArrowLeftRight,
@@ -9,6 +10,7 @@ import {
   Bell,
   Settings,
   Sparkles,
+  LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -86,6 +88,14 @@ export function Sidebar({
         <Settings className="h-[18px] w-[18px]" aria-hidden="true" />
         Settings
       </button>
+
+      <Link
+        href="/login"
+        className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+      >
+        <LogOut className="h-[18px] w-[18px]" aria-hidden="true" />
+        Sign out
+      </Link>
     </aside>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Loader2, Mail, Lock, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -9,6 +10,7 @@ import { cn } from "@/lib/utils"
 type Mode = "signin" | "signup"
 
 export function LoginForm() {
+  const router = useRouter()
   const [mode, setMode] = useState<Mode>("signin")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -18,7 +20,7 @@ export function LoginForm() {
     e.preventDefault()
     setLoading(true)
     // Simulated auth — wire to a real backend when ready.
-    setTimeout(() => setLoading(false), 1400)
+    setTimeout(() => router.push("/"), 1200)
   }
 
   return (
