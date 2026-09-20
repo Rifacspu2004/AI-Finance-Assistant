@@ -22,7 +22,7 @@ export function InvestmentPortfolio() {
           <p className="font-serif text-xl font-bold text-card-foreground">
             {formatCurrency(total)}
           </p>
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-[color:var(--chart-3)]">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-chart-3">
             <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />
             +6.2% all time
           </span>
@@ -65,7 +65,7 @@ export function InvestmentPortfolio() {
                 <span
                   className={cn(
                     "inline-flex items-center gap-0.5 text-xs font-medium",
-                    up ? "text-[color:var(--chart-3)]" : "text-destructive",
+                    up ? "text-chart-3" : "text-destructive",
                   )}
                 >
                   {up ? (

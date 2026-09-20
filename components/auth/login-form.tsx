@@ -3,7 +3,14 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Eye, EyeOff, Loader2, Mail, Lock, User } from "lucide-react"
+import { Eye, EyeOff, Loader2, Mail, Lock, User, AlertCircle } from "lucide-react"
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
+  User as FirebaseUser,
+} from "firebase/auth"
+import { auth } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -15,12 +22,73 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [remember, setRemember] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  function handleSubmit(e: React.FormEvent) {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+  })
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }))
+  }
+
+  async function handleAuthSuccess(user: FirebaseUser) {
+    const idToken = await user.getIdToken()
+    document.cookie = `firebase-auth-token=${idToken}; path=/; max-age=604800; SameSite=Lax`
+    setLoading(false)
+    router.push("/")
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    // Simulated auth — wire to a real backend when ready.
-    setTimeout(() => router.push("/"), 1200)
+    setError(null)
+
+    try {
+      if (mode === "signup") {
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          formData.email,
+          formData.password
+        )
+
+        if (formData.name) {
+          await updateProfile(userCredential.user, { displayName: formData.name })
+        }
+
+        await handleAuthSuccess(userCredential.user)
+      } else {
+        const userCredential = await signInWithEmailAndPassword(
+          auth,
+          formData.email,
+          formData.password
+        )
+        await handleAuthSuccess(userCredential.user)
+      }
+    } catch (err: any) {
+      console.error("Firebase Auth Error Code:", err.code, err.message)
+
+      let message = "Authentication failed."
+      if (err.code === "auth/email-already-in-use") {
+        message = "This email is already registered. Please sign in instead."
+      } else if (err.code === "auth/weak-password") {
+        message = "Password should be at least 6 characters."
+      } else if (err.code === "auth/operation-not-allowed") {
+        message = "Email/Password sign-in is not enabled in Firebase Console."
+      } else if (err.code === "auth/invalid-credential" || err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
+        message = "Invalid email or password."
+      } else {
+        message = err.message || message
+      }
+
+      setError(message)
+      setLoading(false)
+    }
   }
 
   return (
@@ -48,12 +116,15 @@ export function LoginForm() {
             role="tab"
             type="button"
             aria-selected={mode === m}
-            onClick={() => setMode(m)}
+            onClick={() => {
+              setMode(m)
+              setError(null)
+            }}
             className={cn(
               "rounded-lg py-2 text-sm font-medium transition-colors",
               mode === m
                 ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             {m === "signin" ? "Sign in" : "Create account"}
@@ -61,15 +132,24 @@ export function LoginForm() {
         ))}
       </div>
 
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg bg-destructive/15 p-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {mode === "signup" && (
           <Field label="Full name" htmlFor="name">
             <div className="relative">
-              <User className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <User className="pointer-events-none absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <input
                 id="name"
                 name="name"
                 type="text"
+                value={formData.name}
+                onChange={handleInputChange}
                 required
                 autoComplete="name"
                 placeholder="Alex Morgan"
@@ -81,11 +161,13 @@ export function LoginForm() {
 
         <Field label="Email address" htmlFor="email">
           <div className="relative">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <input
               id="email"
               name="email"
               type="email"
+              value={formData.email}
+              onChange={handleInputChange}
               required
               autoComplete="email"
               placeholder="you@example.com"
@@ -109,11 +191,13 @@ export function LoginForm() {
           }
         >
           <div className="relative">
-            <Lock className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <input
               id="password"
               name="password"
               type={showPassword ? "text" : "password"}
+              value={formData.password}
+              onChange={handleInputChange}
               required
               autoComplete={mode === "signin" ? "current-password" : "new-password"}
               placeholder={mode === "signup" ? "At least 8 characters" : "••••••••"}
@@ -126,9 +210,9 @@ export function LoginForm() {
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground transition-colors hover:text-foreground"
             >
               {showPassword ? (
-                <EyeOff className="h-[18px] w-[18px]" aria-hidden="true" />
+                <EyeOff className="h-4.5 w-4.5" aria-hidden="true" />
               ) : (
-                <Eye className="h-[18px] w-[18px]" aria-hidden="true" />
+                <Eye className="h-4.5 w-4.5" aria-hidden="true" />
               )}
             </button>
           </div>
@@ -219,7 +303,7 @@ function Field({
 
 function GoogleIcon() {
   return (
-    <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" aria-hidden="true">
       <path
         fill="#4285F4"
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1Z"
@@ -242,7 +326,7 @@ function GoogleIcon() {
 
 function AppleIcon() {
   return (
-    <svg className="h-[18px] w-[18px] fill-foreground" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="h-4.5 w-4.5 fill-foreground" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M16.36 12.66c-.02-2.16 1.76-3.2 1.84-3.25-1-1.47-2.56-1.67-3.11-1.69-1.32-.13-2.58.78-3.25.78-.67 0-1.71-.76-2.81-.74-1.45.02-2.78.84-3.53 2.14-1.5 2.61-.38 6.47 1.08 8.59.71 1.04 1.56 2.2 2.67 2.16 1.07-.04 1.48-.69 2.77-.69 1.29 0 1.66.69 2.79.67 1.15-.02 1.88-1.05 2.59-2.09.81-1.2 1.15-2.36 1.17-2.42-.03-.01-2.24-.86-2.26-3.41ZM14.3 6.25c.59-.72.99-1.71.88-2.71-.85.03-1.88.57-2.49 1.28-.55.63-1.03 1.65-.9 2.62.95.07 1.92-.48 2.51-1.19Z" />
     </svg>
   )

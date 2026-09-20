@@ -52,12 +52,12 @@ export function Ledger() {
               <div
                 className={cn(
                   "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-                  isIn ? "bg-[color:var(--chart-3)]/15" : "bg-secondary",
+                  isIn ? "bg-chart-3/15" : "bg-secondary",
                 )}
               >
                 {isIn ? (
                   <ArrowDownLeft
-                    className="h-5 w-5 text-[color:var(--chart-3)]"
+                    className="h-5 w-5 text-chart-3"
                     aria-hidden="true"
                   />
                 ) : (
@@ -83,7 +83,7 @@ export function Ledger() {
                 <p
                   className={cn(
                     "text-sm font-semibold tabular-nums",
-                    isIn ? "text-[color:var(--chart-3)]" : "text-card-foreground",
+                    isIn ? "text-chart-3" : "text-card-foreground",
                   )}
                 >
                   {isIn ? "+" : "−"}

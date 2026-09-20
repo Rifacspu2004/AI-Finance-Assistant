@@ -24,9 +24,10 @@ const rows = [
   },
 ]
 
+// File: components/dashboard/budget-tracker.tsx
 export function BudgetTracker() {
   const allocated = budget.costs.limit + budget.wants.limit + budget.savings.limit
-  const balanced = allocated === budget.income
+  const balanced = allocated === budget.income.limit
 
   return (
     <section className="rounded-3xl border border-border bg-card p-6 shadow-sm">
@@ -44,21 +45,21 @@ export function BudgetTracker() {
 
       {/* Formula validation matrix: C + W + S = I */}
       <div className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-2 rounded-2xl bg-secondary px-4 py-3 font-serif text-sm">
-        <span className="font-semibold text-[color:var(--chart-1)]">
+        <span className="font-semibold text-chart-1">
           Costs {formatCurrency(budget.costs.limit)}
         </span>
         <span className="text-muted-foreground">+</span>
-        <span className="font-semibold text-[color:var(--chart-4)]">
+        <span className="font-semibold text-chart-4">
           Wants {formatCurrency(budget.wants.limit)}
         </span>
         <span className="text-muted-foreground">+</span>
-        <span className="font-semibold text-[color:var(--chart-3)]">
+        <span className="font-semibold text-chart-3">
           Savings {formatCurrency(budget.savings.limit)}
         </span>
         <span className="text-muted-foreground">=</span>
-        <span className="font-bold text-foreground">Income {formatCurrency(budget.income)}</span>
+        <span className="font-bold text-foreground">Income {formatCurrency(budget.income.limit)}</span>
         {balanced && (
-          <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-[color:var(--chart-3)]">
+          <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-chart-3">
             <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
             Balanced
           </span>

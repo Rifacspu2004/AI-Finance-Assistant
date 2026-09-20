@@ -11,11 +11,14 @@ import { Ledger } from "@/components/dashboard/ledger"
 import { InvestmentPortfolio } from "@/components/dashboard/investment-portfolio"
 import { NotificationSettings } from "@/components/dashboard/notification-settings"
 import { MobileNav } from "@/components/dashboard/mobile-nav"
+import UniversalCalculator from "@/components/dashboard/universal-calculator"
+
 
 const meta: Record<string, { title: string; subtitle: string }> = {
   overview: { title: "Good morning, Alex", subtitle: "Here's how your money is moving today." },
   send: { title: "Send & Request", subtitle: "Move money across your P2P ledger instantly." },
   budget: { title: "AI Budget", subtitle: "Smart allocation validated against your income." },
+  calculator: { title: "Universal Calculator", subtitle: "Simulate dynamic budget tiers and resource maps instantly." },
   invest: { title: "Investments", subtitle: "Track your holdings and portfolio growth." },
   ledger: { title: "P2P Ledger", subtitle: "Your complete, stateful transaction history." },
   alerts: { title: "Notifications", subtitle: "Control what Aeris pings you about." },
@@ -52,8 +55,12 @@ export default function Page() {
                 </div>
               </div>
               <div className="grid gap-6 lg:grid-cols-2">
-                <Ledger />
-                <InvestmentPortfolio />
+                <div className="lg:col-span-1">
+                  <UniversalCalculator />
+                </div>
+                <div className="lg:col-span-1">
+                  <InvestmentPortfolio />
+                </div>
               </div>
             </div>
           )}
@@ -73,6 +80,12 @@ export default function Page() {
               <div className="lg:col-span-1">
                 <BalanceCard />
               </div>
+            </div>
+          )}
+
+          {active === "calculator" && (
+            <div className="w-full">
+              <UniversalCalculator />
             </div>
           )}
 
