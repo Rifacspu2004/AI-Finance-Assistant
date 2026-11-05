@@ -1,0 +1,47 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // User profile documents
+    match /users/{userId} {
+      // Any signed-in user can read (needed for contact search)
+      allow read: if request.auth != null;
+
+      // Owner can write anything to their own profile
+      allow write: if request.auth != null && request.auth.uid == userId;
+
+      // Any signed-in user can update ONLY the walletBalance field on any user doc
+      // Required for atomic P2P transfers (sender updates recipient balance)
+      allow update: if request.auth != null &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['walletBalance']) &&
+        request.resource.data.walletBalance is number;
+    }
+
+    // Transactions
+    match /transactions/{txId} {
+      // Any authenticated user can read
+      allow read: if request.auth != null;
+
+      // SEND: current user is the sender
+      // REQUEST: current user is the recipient (asking someone else to pay)
+      //          so senderId = payer (the other person), recipientId = current user
+      allow create: if request.auth != null &&
+        request.resource.data.amount is number &&
+        request.resource.data.amount > 0 &&
+        request.resource.data.recipientId is string &&
+        request.resource.data.senderId is string &&
+        (
+          request.auth.uid == request.resource.data.senderId ||
+          request.auth.uid == request.resource.data.recipientId
+        );
+
+      // Sender or recipient can update (pay / decline)
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.senderId ||
+        request.auth.uid == resource.data.recipientId
+      );
+    }
+
+  }
+}

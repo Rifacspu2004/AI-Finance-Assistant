@@ -2,9 +2,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
+import { onAuthStateChanged } from "firebase/auth"
 import { Sparkles, RefreshCw, UserCheck, HelpCircle, Lock, Flame, Scale, ShieldCheck, ArrowRight, Zap, Target, TrendingUp, AlertTriangle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { AiAdvicePanel } from "@/components/dashboard/ai-advice-panel"
 import { cn } from "@/lib/utils"
+import { auth } from "@/lib/firebase"
+import { getUserProfile } from "@/lib/user-profile"
 
 export type BudgetMode = "lavish" | "moderate" | "stingy"
 
@@ -26,6 +31,7 @@ export default function UniversalCalculator() {
   // AI Integration States
   const [aiAdvice, setAiAdvice] = useState<string>("")
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false)
+  const [aiAdviceError, setAiAdviceError] = useState<string | null>(null)
 
   const calculateProfile = (amt: number, m: BudgetMode): BudgetProfile => {
     if (m === "lavish") {
@@ -68,13 +74,32 @@ export default function UniversalCalculator() {
   const [isUserLoggedIn, setIsUserLoggedIn] = useState<boolean>(false)
 
   useEffect(() => {
-    const mockAuthCheck = localStorage.getItem("user_session_active") === "true"
-    setIsUserLoggedIn(mockAuthCheck)
+    return onAuthStateChanged(auth, async (user) => {
+      setIsUserLoggedIn(Boolean(user))
+      if (user) {
+        try {
+          const prof = await getUserProfile(user.uid)
+          if (prof?.monthlyIncome && Number(prof.monthlyIncome) > 0) {
+            setMonthlyIncome(Number(prof.monthlyIncome))
+            if (prof.fullName) {
+              setTargetName(`${prof.fullName.split(" ")[0]}'s Budget`)
+            }
+          }
+        } catch {}
+      }
+    })
   }, [])
+
+  useEffect(() => {
+    setAiAdvice("")
+    setAiAdviceError(null)
+  }, [monthlyIncome, selectedMode, targetName])
 
   // Call the Next.js API Route (/api/ai-advice)
   const handleGenerateAiAdvice = async () => {
     setIsLoadingAi(true)
+    setAiAdvice("")
+    setAiAdviceError(null)
     try {
       const res = await fetch("/api/ai-advice", {
         method: "POST",
@@ -89,13 +114,15 @@ export default function UniversalCalculator() {
         }),
       })
       const data = await res.json()
-      if (data.advice) {
-        setAiAdvice(data.advice)
+      if (!res.ok || typeof data.advice !== "string" || !data.advice.trim()) {
+        setAiAdviceError(typeof data.advice === "string" && data.advice.trim()
+          ? data.advice
+          : "The AI service returned no usable advice. Please try again.")
       } else {
-        setAiAdvice("Failed to retrieve custom AI insights.")
+        setAiAdvice(data.advice)
       }
-    } catch {
-      setAiAdvice("Network error connecting to AI endpoint.")
+    } catch (error) {
+      setAiAdviceError(error instanceof Error ? error.message : "Network error connecting to AI endpoint.")
     } finally {
       setIsLoadingAi(false)
     }
@@ -130,7 +157,7 @@ export default function UniversalCalculator() {
               <Lock className="mr-1.5 h-3.5 w-3.5" /> Sync Locked
             </Button>
           )}
-          <Button variant="secondary" size="sm" className="rounded-xl text-xs font-semibold" onClick={() => { setTargetName("Guest Scenario"); setMonthlyIncome(4000); setAiAdvice(""); }}>
+          <Button variant="secondary" size="sm" className="rounded-xl text-xs font-semibold" onClick={() => { setTargetName("Guest Scenario"); setMonthlyIncome(4000); setAiAdvice(""); setAiAdviceError(null); }}>
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Reset Sandbox
           </Button>
         </div>
@@ -294,7 +321,7 @@ export default function UniversalCalculator() {
             </div>
             <div className="space-y-3 flex-1">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <h4 className="text-sm font-bold text-foreground">Live Gemini AI Advisor</h4>
+                <h4 className="text-sm font-bold text-foreground">Aeris AI Advisor</h4>
                 <Button 
                   size="sm" 
                   onClick={handleGenerateAiAdvice}
@@ -307,12 +334,16 @@ export default function UniversalCalculator() {
               </div>
 
               {aiAdvice ? (
-                <div className="p-3.5 rounded-2xl bg-background border border-border text-xs text-foreground/90 leading-relaxed font-sans shadow-inner whitespace-pre-line">
-                  {aiAdvice}
-                </div>
+                <AiAdvicePanel advice={aiAdvice} />
               ) : (
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Click generate to send your monthly income of <strong>${monthlyIncome.toLocaleString()}</strong> and <strong>{selectedMode.toUpperCase()}</strong> strategy directly to Gemini for real-time wealth optimization.
+                  Generate personalized priorities using your monthly income of <strong>${monthlyIncome.toLocaleString()}</strong> and <strong>{selectedMode.toUpperCase()}</strong> strategy.
+                </p>
+              )}
+
+              {aiAdviceError && (
+                <p role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                  {aiAdviceError}
                 </p>
               )}
 
@@ -321,9 +352,12 @@ export default function UniversalCalculator() {
                   <p className="text-xs text-foreground/80 font-medium">
                     ⚡ Lock in this strategy! Register to track real assets, get auto notifications, and execute P2P transfers.
                   </p>
-                  <Button size="sm" className="h-8 rounded-xl text-xs font-semibold px-4 whitespace-nowrap shadow-sm">
+                  <Link
+                    href="/login"
+                    className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-xl bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                  >
                     Register Free <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                  </Button>
+                  </Link>
                 </div>
               )}
             </div>

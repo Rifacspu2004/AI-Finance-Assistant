@@ -3,14 +3,17 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Eye, EyeOff, Loader2, Mail, Lock, User, AlertCircle } from "lucide-react"
+import { Eye, EyeOff, Loader2, Mail, Lock, User, AlertCircle, CheckCircle } from "lucide-react"
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   updateProfile,
   User as FirebaseUser,
 } from "firebase/auth"
-import { auth } from "@/lib/firebase"
+import { auth, db } from "@/lib/firebase"
+import { doc, setDoc, collection, addDoc } from "firebase/firestore"
+import { DEFAULT_STARTING_BALANCE, DEFAULT_MONTHLY_INCOME, getCurrentMonthPeriodKey } from "@/lib/transactions"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -23,6 +26,8 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [resetSent, setResetSent] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
 
   const [formData, setFormData] = useState({
     name: "",
@@ -35,6 +40,32 @@ export function LoginForm() {
       ...prev,
       [e.target.name]: e.target.value,
     }))
+  }
+
+  async function handleForgotPassword() {
+    if (!formData.email.trim()) {
+      setError("Please enter your email address in the field below first.")
+      setResetSent(false)
+      return
+    }
+    setResetLoading(true)
+    setError(null)
+    setResetSent(false)
+    try {
+      await sendPasswordResetEmail(auth, formData.email.trim())
+      setResetSent(true)
+    } catch (err: any) {
+      console.error("Password reset error:", err)
+      if (err.code === "auth/user-not-found") {
+        setError("No account found with this email.")
+      } else if (err.code === "auth/invalid-email") {
+        setError("Please enter a valid email address.")
+      } else {
+        setError(err.message || "Failed to send password reset email.")
+      }
+    } finally {
+      setResetLoading(false)
+    }
   }
 
   async function handleAuthSuccess(user: FirebaseUser) {
@@ -60,6 +91,38 @@ export function LoginForm() {
         if (formData.name) {
           await updateProfile(userCredential.user, { displayName: formData.name })
         }
+
+        // Create Firestore user doc so they appear in search for other users with base + monthly income credited
+        const currentPeriod = getCurrentMonthPeriodKey()
+        const now = new Date()
+        const monthName = now.toLocaleString("en-US", { month: "long" })
+        const year = now.getFullYear()
+
+        const userRef = doc(db, "users", userCredential.user.uid)
+        await setDoc(userRef, {
+          fullName: formData.name || "",
+          email: formData.email,
+          walletBalance: DEFAULT_STARTING_BALANCE,
+          monthlyIncome: String(DEFAULT_MONTHLY_INCOME),
+          annualIncome: String(DEFAULT_MONTHLY_INCOME * 12),
+          lastIncomeCreditPeriod: currentPeriod,
+          lastIncomeCreditTimestamp: Date.now(),
+          createdAt: new Date().toISOString(),
+        }, { merge: true })
+
+        // Record initial monthly salary auto-credit transaction
+        const txRef = collection(db, "transactions")
+        await addDoc(txRef, {
+          senderId: "aeris-payroll",
+          recipientId: userCredential.user.uid,
+          kind: "send",
+          amount: DEFAULT_MONTHLY_INCOME,
+          category: "Income",
+          note: `Monthly Salary Auto-Credit • 1st of ${monthName} ${year}`,
+          createdAt: Date.now(),
+          statusUpdatedAt: Date.now(),
+          status: "completed",
+        })
 
         await handleAuthSuccess(userCredential.user)
       } else {
@@ -139,6 +202,13 @@ export function LoginForm() {
         </div>
       )}
 
+      {resetSent && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg bg-green-500/15 p-3 text-sm text-green-600">
+          <CheckCircle className="h-4 w-4 shrink-0" />
+          <span>Password reset link sent! Check your email inbox (and spam folder).</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {mode === "signup" && (
           <Field label="Full name" htmlFor="name">
@@ -181,12 +251,14 @@ export function LoginForm() {
           htmlFor="password"
           action={
             mode === "signin" ? (
-              <Link
-                href="#"
-                className="text-xs font-medium text-primary hover:underline"
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={resetLoading}
+                className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
               >
-                Forgot password?
-              </Link>
+                {resetLoading ? "Sending link…" : "Forgot password?"}
+              </button>
             ) : undefined
           }
         >

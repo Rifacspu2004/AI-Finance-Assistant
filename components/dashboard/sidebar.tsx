@@ -29,7 +29,7 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="w-64 border-r border-border bg-card min-h-screen p-4 flex flex-col justify-between">
+    <aside className="w-64 shrink-0 border-r border-border bg-card min-h-screen p-4 flex flex-col justify-between">
       <div>
         <div className="flex items-center gap-2 px-3 py-4">
           <span className="font-serif text-xl font-bold text-foreground">Aeris</span>

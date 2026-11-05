@@ -1,0 +1,181 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build project",
+			"type": "shell",
+			"command": "npm run build",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Lint project",
+			"type": "shell",
+			"command": "npm run lint",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect git diff",
+			"type": "shell",
+			"command": "git --no-pager diff -- components/dashboard/profile-modal.tsx app/api/ai-advice/route.ts app/api/investment-insight/route.ts",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check route diff",
+			"type": "shell",
+			"command": "git --no-pager diff -- app/api/ai-advice/route.ts | more",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Test Python command",
+			"type": "shell",
+			"command": "python -c \"print('hi')\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Fix AI API routes",
+			"type": "shell",
+			"command": "python -c \"from pathlib import Path; root = Path(r'C:\\Users\\FAZIL RIFATH\\professional-landing-page'); (root / 'app/api/ai-advice/route.ts').write_text('''// app/api/ai-advice/route.ts\\nimport { NextResponse } from \\\"next/server\\\"\\n\\nexport async function POST(req: Request) {\\n  try {\\n    let body: Record<string, unknown>\\n\\n    try {\\n      body = (await req.json()) as Record<string, unknown>\\n    } catch {\\n      return NextResponse.json(\\n        { advice: \\\"Invalid request payload. Please retry with a valid JSON body.\\\" },\\n        { status: 400 }\\n      )\\n    }\\n\\n    if (!body || typeof body !== \\\"object\\\" || Array.isArray(body)) {\\n      return NextResponse.json(\\n        { advice: \\\"Invalid request payload. Expected an object.\\\" },\\n        { status: 400 }\\n      )\\n    }\\n\\n    const apiKey = process.env.GROQ_API_KEY?.trim()\\n\\n    if (!apiKey) {\\n      return NextResponse.json(\\n        { advice: \\\"Error: GROQ_API_KEY is missing in your .env.local file.\\\" },\\n        { status: 400 }\\n      )\\n    }\\n\\n    // ── Budget page calls with { budgetMode: \\\"full_plan\\\", ... }\\n    // ── Calculator calls with { income, mode, needs, wants, savings, persona }\\n    const isBudgetPage = body.budgetMode === \\\"full_plan\\\"\\n\\n    let systemPrompt: string\\n    let userPrompt: string\\n\\n    if (isBudgetPage) {\\n      const {\\n        fullName,\\n        annualIncome,\\n        monthlyIncome,\\n        employmentStatus,\\n        sourceOfFunds,\\n        accountType,\\n        country,\\n        needs,\\n        wants,\\n        savings,\\n      } = body\\n\\n      systemPrompt = \\`You are Aeris AI, a careful personal-finance education assistant. Be clear, practical, and honest about uncertainty. Never claim to be a licensed or certified financial professional, invent personal facts, guarantee returns, or present estimates as promises.\\`\\n\\n      userPrompt = \\`Create a comprehensive financial plan for this person:\\n\\nName: ${fullName || \\\"User\\\"}\\nCountry: ${country || \\\"Unknown\\\"}\\nEmployment: ${employmentStatus || \\\"Unknown\\\"}\\nSource of Funds: ${sourceOfFunds || \\\"Unknown\\\"}\\nAccount Type: ${accountType || \\\"checking\\\"}\\nAnnual Income: $${annualIncome}\\nMonthly Income: $${monthlyIncome}\\n\\nMONTHLY 50/30/20 SPLIT:\\n- Needs (50%): $${needs}/month\\n- Wants (30%): $${wants}/month  \\n- Savings/Investments (20%): $${savings}/month\\n\\nWrite your response in this EXACT format with these EXACT section headers. Put each section header on its own line without Markdown characters. Do not wrap headers or phrases in asterisks. Use numbered plain-text lines for KEY TIPS. Treat each allocation as a planning target, not a known expense:\\n\\nSUMMARY\\n[2-3 useful sentences connecting the stated profile and income to the plan. Do not infer their actual expenses, debts, dependants, or goals.]\\n\\nNEEDS — $${needs}/month\\n[Explain that this is the needs allocation. Suggest categories such as housing, utilities, groceries, transport, and healthcare, but do not assign made-up dollar amounts to individual categories.]\\n\\nWANTS — $${wants}/month\\n[Explain that this is the wants allocation and give practical examples, without inventing their actual spending.]\\n\\nSAVINGS — $${savings}/month\\n[Give a sensible order of priorities: meet essential bills, address high-interest debt, build an accessible emergency reserve, then consider diversified long-term investing if suitable. If splitting this amount, clearly label it as an example rather than a known requirement.]\\n\\nINVESTMENTS\\n[Discuss broad, diversified investment categories and the importance of time horizon, fees, and risk tolerance. Do not promise or forecast returns, provide individual security picks, or assume the person is ready to invest before addressing expensive debt and emergency savings.]\\n\\nEMERGENCY FUND\\n[Describe a common target of 3-6 months of essential expenses, explain that the exact target depends on actual expenses and income stability, and suggest keeping it accessible and low risk. Do not calculate a target from income alone.]\\n\\nKEY TIPS\\n[Give 4 specific, actionable tips tied to this plan and stated information. Do not assume debts, expenses, or family circumstances.]\\n\\nWARNINGS\\n[Give relevant cautions, including that the 50/30/20 split is a starting point that may need adjustment to local costs and actual obligations. Do not invent risks specific to this person.]\\`\\n    } else {\\n      // Calculator page — original format\\n      const { income, mode, needs, wants, savings, persona } = body\\n      systemPrompt = \\`You are Aeris AI, a careful personal-finance education assistant. Give clear, practical recommendations based only on the supplied numbers. Never claim to be a licensed financial professional, invent personal facts, or guarantee investment returns.\\`\\n      userPrompt = \\`Analyze this budget profile:\\nMonthly income: $${income}\\nStrategy: ${mode}\\nNeeds: $${needs}\\nWants: $${wants}\\nSavings: $${savings}\\nPersona: ${persona}\\n\\nReturn exactly 3 substantial, personalized recommendations, one per paragraph, in this format:\\n1. [Concise action title] — [Two or three complete sentences. Explain a concrete action, why it fits this income and strategy, and how to start this month.]\\n2. [Concise action title] — [Two or three complete sentences. Give a distinct financial-stability improvement, using the supplied allocation amounts accurately where relevant.]\\n3. [Concise action title] — [Two or three complete sentences. Give a distinct, realistic next step and a way to review progress.]\\n\\nRecommendations must be financially responsible: prioritize essential expenses, high-interest debt repayment, and an accessible emergency reserve before suggesting investing. Do not assume the person has debt or savings already; phrase those as conditional checks. Treat the supplied allocation as a proposed budget, not as verified actual spending. Do not recommend individual securities or predict returns. Do not repeat generic slogans. Do not add an introduction, markdown headings, or a conclusion.\\`\\n    }\\n\\n    const response = await fetch(\\\"https://api.groq.com/openai/v1/chat/completions\\\", {\\n      method: \\\"POST\\\",\\n      headers: {\\n        Authorization: `Bearer ${apiKey}`,\\n        \\\"Content-Type\\\": \\\"application/json\\\",\\n      },\\n      body: JSON.stringify({\\n        model: \\\"openai/gpt-oss-20b\\\",\\n        messages: [\\n          { role: \\\"system\\\", content: systemPrompt },\\n          { role: \\\"user\\\", content: userPrompt },\\n        ],\\n        temperature: 0.3,\\n        max_completion_tokens: isBudgetPage ? 3000 : 1200,\\n      }),\\n    })\\n\\n    const data = await response.json().catch(() => ({}))\\n    if (!response.ok) {\\n      return NextResponse.json(\\n        {\\n          advice: `Groq Error: ${\\n            typeof data?.error?.message === \\\"string\\\"\\n              ? data.error.message\\n              : response.statusText\\n          }`,\\n        },\\n        { status: response.status }\\n      )\\n    }\\n\\n    const content = data.choices?.[0]?.message?.content\\n    const advice = typeof content === \\\"string\\\"\\n      ? content.trim()\\n      : Array.isArray(content)\\n        ? content\\n            .filter((part: { type?: string; text?: string }) => part.type === \\\"text\\\" && typeof part.text === \\\"string\\\")\\n            .map((part: { text: string }) => part.text)\\n            .join(\\\"\\\\n\\\")\\n            .trim()\\n        : \\\"\\\"\\n\\n    if (!advice || /^no advice generated\\\\.?$/i.test(advice)) {\\n      console.error(\\\"AI Advice API returned an empty answer.\\\", {\\n        finishReason: data.choices?.[0]?.finish_reason ?? \\\"unknown\\\",\\n      })\\n      return NextResponse.json(\\n        { advice: \\\"The AI service returned an empty answer. Please try again; if this continues, check the server\\'s AI provider configuration.\\\" },\\n        { status: 502 }\\n      )\\n    }\\n\\n    return NextResponse.json({ advice })\\n\\n  } catch (error) {\\n    console.error(\\\"AI Advice API Error:\\\", error)\\n    return NextResponse.json(\\n      { advice: `Internal Server Error: ${error instanceof Error ? error.message : \\\"Unknown error\\\"}` },\\n      { status: 500 }\\n    )\\n  }\\n}\\n'''); (root / 'app/api/investment-insight/route.ts').write_text('''import { NextResponse } from \\\"next/server\\\"\\n\\ntype IndexQuote = {\\n  symbol: string\\n  name: string\\n  currency: string\\n  price: number\\n  changePercent: number\\n  asOf: string\\n}\\n\\ntype YahooChartResponse = {\\n  chart?: {\\n    error?: { description?: string } | null\\n    result?: Array<{\\n      meta?: {\\n        currency?: string\\n        longName?: string\\n        shortName?: string\\n        regularMarketPrice?: number\\n        regularMarketChangePercent?: number\\n        regularMarketTime?: number\\n      }\\n    }> | null\\n  }\\n}\\n\\nconst marketIndices = [\\n  { symbol: \\\"^GSPC\\\", label: \\\"S&P 500\\\" },\\n  { symbol: \\\"^NSEI\\\", label: \\\"NIFTY 50\\\" },\\n  { symbol: \\\"^STOXX50E\\\", label: \\\"EURO STOXX 50\\\" },\\n  { symbol: \\\"^N225\\\", label: \\\"Nikkei 225\\\" },\\n]\\n\\nasync function fetchIndex(\\n  index: (typeof marketIndices)[number],\\n  signal: AbortSignal,\\n): Promise<IndexQuote> {\\n  const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(index.symbol)}`)\\n  url.searchParams.set(\\\"range\\\", \\\"5d\\\")\\n  url.searchParams.set(\\\"interval\\\", \\\"1d\\\")\\n\\n  const response = await fetch(url, {\\n    signal,\\n    cache: \\\"no-store\\\",\\n    headers: { \\\"User-Agent\\\": \\\"AerisFinanceDashboard/1.0\\\" },\\n  })\\n  if (!response.ok) {\\n    throw new Error(`${index.label} quote request failed (${response.status}).`)\\n  }\\n\\n  const payload = await response.json() as YahooChartResponse\\n  const result = payload.chart?.result?.[0]\\n  const meta = result?.meta\\n  if (\\n    !meta ||\\n    typeof meta.regularMarketPrice !== \\\"number\\\" ||\\n    !Number.isFinite(meta.regularMarketPrice) ||\\n    typeof meta.regularMarketChangePercent !== \\\"number\\\" ||\\n    !Number.isFinite(meta.regularMarketChangePercent) ||\\n    typeof meta.regularMarketTime !== \\\"number\\\"\\n  ) {\\n    throw new Error(payload.chart?.error?.description || `${index.label} quote was missing current market fields.`)\\n  }\\n\\n  return {\\n    symbol: index.symbol,\\n    name: meta.longName || meta.shortName || index.label,\\n    currency: meta.currency || \\\"Index points\\\",\\n    price: meta.regularMarketPrice,\\n    changePercent: meta.regularMarketChangePercent,\\n    asOf: new Date(meta.regularMarketTime * 1000).toISOString(),\\n  }\\n}\\n\\nexport async function POST(request: Request) {\\n  try {\\n    const body: unknown = await request.json()\\n    if (!body || typeof body !== \\\"object\\\") {\\n      return NextResponse.json({ error: \\\"Invalid investment review request.\\\" }, { status: 400 })\\n    }\\n    const input = body as Record<string, unknown>\\n    const monthlyIncome = input.monthlyIncome\\n    if (\\n      typeof monthlyIncome !== \\\"number\\\" ||\\n      !Number.isFinite(monthlyIncome) ||\\n      monthlyIncome <= 0 ||\\n      monthlyIncome > 1_000_000_000\\n    ) {\\n      return NextResponse.json({ error: \\\"A valid, positive monthly income is required.\\\" }, { status: 400 })\\n    }\\n\\n    const monthlySavings = monthlyIncome * 0.2\\n    const monthlyInvestment = monthlySavings * 0.7\\n    const reserve = monthlySavings - monthlyInvestment\\n\\n    const apiKey = process.env.GROQ_API_KEY?.trim()\\n    if (!apiKey) {\\n      return NextResponse.json({ error: \\\"AI market reviews are unavailable because GROQ_API_KEY is not configured on the server.\\\" }, { status: 503 })\\n    }\\n\\n    const controller = new AbortController()\\n    const timeout = setTimeout(() => controller.abort(), 12_000)\\n    let marketQuotes: IndexQuote[]\\n    try {\\n      const results = await Promise.allSettled(\\n        marketIndices.map((index) => fetchIndex(index, controller.signal)),\\n      )\\n      marketQuotes = results.flatMap((result) => result.status === \\\"fulfilled\\\" ? [result.value] : [])\\n    } finally {\\n      clearTimeout(timeout)\\n    }\\n\\n    if (marketQuotes.length === 0) {\\n      return NextResponse.json(\\n        { error: \\\"Current market data could not be retrieved. Please retry later; no market-based AI advice was generated.\\\" },\\n        { status: 502 },\\n      )\\n    }\\n\\n    const marketAsOf = marketQuotes\\n      .map((quote) => new Date(quote.asOf).getTime())\\n      .reduce((latest, time) => Math.max(latest, time), 0)\\n    const sourceUrl = \\\"https://finance.yahoo.com/\\\"\\n    const systemPrompt = \\`You are Aeris AI, a cautious financial education assistant. You are given factual market quotes retrieved moments ago from a market data feed. Do not claim to have researched any facts beyond the supplied data. Never predict or guarantee profit, tell the user to buy or sell a specific security, or imply that short-term index changes forecast long-term returns. Explain uncertainty clearly.\\`\\n    const userPrompt = \\`Write a clear, professional current-market investment review using only these supplied facts.\\n\\nUser's monthly profile income (entered in USD): $${monthlyIncome.toFixed(2)}\\nIllustrative amount to invest this month (70% of a 20% savings target): $${monthlyInvestment.toFixed(2)}\\nIllustrative amount retained for debt/emergency savings (30% of that savings target): $${reserve.toFixed(2)}\\n\\nRetrieved market index snapshots:\\n${marketQuotes.map((quote) => `- ${quote.name} (${quote.symbol}): ${quote.price.toLocaleString()} ${quote.currency}; reported daily change ${quote.changePercent >= 0 ? \\\"+\\\" : \\\"\\\"}${quote.changePercent.toFixed(2)}%; quote time ${quote.asOf}.`).join(\\\"\\\\n\\\") }\\n\\nMarket data source: Yahoo Finance chart feed (${sourceUrl}). These are index snapshots, not a complete assessment of all world markets. Quote timestamps can differ by exchange and quotes may be delayed or from the latest session, not live.\\n\\nGive 3 titled, distinct short sections in plain text:\\nCURRENT SNAPSHOT — summarize the observed data neutrally; explicitly mention that markets are mixed or limited if appropriate.\\nWHAT THIS MEANS FOR THE PLAN — connect the supplied monthly amount with a diversified, regular-investing approach; explain that one-day moves are not a reason to chase or panic.\\nPRACTICAL NEXT STEPS — mention checking emergency savings and high-interest debt before investing, using regulated low-cost diversified funds suited to the user's country, fees, tax rules, time horizon, and risk tolerance; do not name a fund as a buy recommendation.\\n\\nUse the actual quote values and dates. Limit the whole answer to 180 words. State that the 70/30 rule is only an adjustable illustration. Do not invent an asset allocation or assume the user has no debt/emergency fund. Include that this is educational, not personalized financial advice.\\`\\n\\n    const aiResponse = await fetch(\\\"https://api.groq.com/openai/v1/chat/completions\\\", {\\n      method: \\\"POST\\\",\\n      headers: {\\n        Authorization: `Bearer ${apiKey}`,\\n        \\\"Content-Type\\\": \\\"application/json\\\",\\n      },\\n      body: JSON.stringify({\\n        model: \\\"openai/gpt-oss-20b\\\",\\n        messages: [\\n          { role: \\\"system\\\", content: systemPrompt },\\n          { role: \\\"user\\\", content: userPrompt },\\n        ],\\n        temperature: 0.2,\\n        max_completion_tokens: 900,\\n      }),\\n      signal: AbortSignal.timeout(30_000),\\n    })\\n\\n    const aiData = await aiResponse.json().catch(() => ({}))\\n    if (!aiResponse.ok) {\\n      console.error(\\\"Investment AI provider error:\\\", aiData.error?.message || aiResponse.statusText)\\n      return NextResponse.json(\\n        { error: \\\"The AI provider could not generate a market review. Please try again later.\\\" },\\n        { status: 502 },\\n      )\\n    }\\n\\n    const insight = aiData.choices?.[0]?.message?.content\\n    if (typeof insight !== \\\"string\\\" || !insight.trim()) {\\n      console.error(\\\"Investment AI provider returned an empty market review.\\\")\\n      return NextResponse.json(\\n        { error: \\\"The AI returned an empty review. Please try again.\\\" },\\n        { status: 502 },\\n      )\\n    }\\n\\n    return NextResponse.json({\\n      insight: insight.trim(),\\n      quotes: marketQuotes,\\n      dataAsOf: new Date(marketAsOf).toISOString(),\\n      sourceUrl,\\n    })\\n  } catch (error) {\\n    const aborted = error instanceof Error && (error.name === \\\"AbortError\\\" || error.name === \\\"TimeoutError\\\")\\n    console.error(\\\"Investment review route failed:\\\", error)\\n    return NextResponse.json(\\n      { error: aborted ? \\\"Fetching current market data timed out. Please try again.\\\" : \\\"Unable to generate a current-market review. Please try again.\\\" },\\n      { status: aborted ? 504 : 500 },\\n    )\\n  }\\n}\\n''') ; print('updated')\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Patch AI requests",
+			"type": "shell",
+			"command": "python -c \"from pathlib import Path; p = Path(r'C:\\Users\\FAZIL RIFATH\\professional-landing-page\\app\\api\\ai-advice\\route.ts'); s = p.read_text(); s = s.replace('''        \\\"Authorization\\\": `******\\n        \\\"Content-Type\\\": \\\"application/json\\\",''', '''        Authorization: `Bearer ${apiKey}`,\\n        \\\"Content-Type\\\": \\\"application/json\\\",'''); s = s.replace('''        reasoning_effort: \\\"low\\\",\\n        reasoning_format: \\\"hidden\\\",\\n''', ''); s = s.replace('''    const data = await response.json()\\n    if (!response.ok) {\\n      return NextResponse.json(\\n        { advice: `Groq Error: ${data.error?.message || response.statusText}` },\\n        { status: response.status }\\n      )\\n    }\\n''', '''    const data = await response.json().catch(() => ({}))\\n    if (!response.ok) {\\n      return NextResponse.json(\\n        {\\n          advice: `Groq Error: ${\\n            typeof data?.error?.message === \\\"string\\\"\\n              ? data.error.message\\n              : response.statusText\\n          }`,\\n        },\\n        { status: response.status }\\n      )\\n    }\\n'''); p.write_text(s); print('patched ai-advice')\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Verify cmd quoting",
+			"type": "shell",
+			"command": "cmd /c \"python -c \\\"print('hi')\\\"\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Run AI route fixer",
+			"type": "shell",
+			"command": "cmd /c \"python \"\"C:\\Users\\FAZIL RIFATH\\.copilot\\session-state\\cdeeafad-824c-4290-9178-c9e5e793de7a\\files\\fix_ai_routes.py\"\"\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Apply regex fix",
+			"type": "shell",
+			"command": "cmd /c \"python \"\"C:\\Users\\FAZIL RIFATH\\.copilot\\session-state\\cdeeafad-824c-4290-9178-c9e5e793de7a\\files\\fix_ai_routes_regex.py\"\"\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Validate build after fix",
+			"type": "shell",
+			"command": "cmd /c \"cd /d C:\\Users\\FAZIL RIFATH\\professional-landing-page && npm run build\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Validate build after fix",
+			"type": "shell",
+			"command": "cmd /c \"cd /d C:\\Users\\FAZIL RIFATH\\professional-landing-page & npm run build\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Validate build after fix",
+			"type": "shell",
+			"command": "cd /d \"C:\\Users\\FAZIL RIFATH\\professional-landing-page\" & npm run build",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Validate build after fix",
+			"type": "shell",
+			"command": "npm run build",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Cleanup temp scripts",
+			"type": "shell",
+			"command": "del \"C:\\Users\\FAZIL RIFATH\\.copilot\\session-state\\cdeeafad-824c-4290-9178-c9e5e793de7a\\files\\fix_ai_routes.py\" & del \"C:\\Users\\FAZIL RIFATH\\.copilot\\session-state\\cdeeafad-824c-4290-9178-c9e5e793de7a\\files\\fix_ai_routes_regex.py\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Delete temp script 1",
+			"type": "shell",
+			"command": "del \"C:\\Users\\FAZIL RIFATH\\.copilot\\session-state\\cdeeafad-824c-4290-9178-c9e5e793de7a\\files\\fix_ai_routes.py\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Run development server",
+			"type": "shell",
+			"command": "pnpm",
+			"args": [
+				"dev"
+			],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Debug app with npm dev",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"dev"
+			],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Start clean dev server on 3002",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"dev",
+				"--",
+				"--port",
+				"3002"
+			],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Inspect Next dev process",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Get-CimInstance Win32_Process -Filter 'ProcessId=2772' | Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect Next process owner",
+			"type": "shell",
+			"command": "Get-CimInstance Win32_Process -Filter 'ProcessId=2772' | Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Reset stale Next dev cache",
+			"type": "shell",
+			"command": "Stop-Process -Id 2772; if ($?) { Remove-Item -LiteralPath 'C:\\Users\\FAZIL RIFATH\\professional-landing-page\\.next' -Recurse -Force }",
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}
