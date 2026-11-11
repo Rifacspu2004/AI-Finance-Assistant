@@ -7,11 +7,18 @@ import { Eye, EyeOff, Loader2, Mail, Lock, User, AlertCircle, CheckCircle } from
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signOut,
   sendPasswordResetEmail,
   updateProfile,
   User as FirebaseUser,
 } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
+import {
+  AUTH_LOGIN_PENDING_KEY,
+  IDLE_SESSION_TIMEOUT_MS,
+  SESSION_ACTIVITY_COOKIE,
+  SESSION_ACTIVITY_STORAGE_PREFIX,
+} from "@/lib/auth-session"
 import { doc, setDoc, collection, addDoc } from "firebase/firestore"
 import { DEFAULT_STARTING_BALANCE, DEFAULT_MONTHLY_INCOME, getCurrentMonthPeriodKey } from "@/lib/transactions"
 import { Button } from "@/components/ui/button"
@@ -28,6 +35,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null)
   const [resetSent, setResetSent] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
+  const [success, setSuccess] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     name: "",
@@ -71,6 +79,9 @@ export function LoginForm() {
   async function handleAuthSuccess(user: FirebaseUser) {
     const idToken = await user.getIdToken()
     document.cookie = `firebase-auth-token=${idToken}; path=/; max-age=604800; SameSite=Lax`
+    document.cookie = `${SESSION_ACTIVITY_COOKIE}=1; path=/; max-age=${Math.floor(IDLE_SESSION_TIMEOUT_MS / 1000)}; SameSite=Lax`
+    localStorage.setItem(`${SESSION_ACTIVITY_STORAGE_PREFIX}${user.uid}`, String(Date.now()))
+    sessionStorage.removeItem(AUTH_LOGIN_PENDING_KEY)
     setLoading(false)
     router.push("/")
   }
@@ -79,6 +90,9 @@ export function LoginForm() {
     e.preventDefault()
     setLoading(true)
     setError(null)
+    setSuccess(null)
+    sessionStorage.setItem(AUTH_LOGIN_PENDING_KEY, String(Date.now()))
+    let newlyCreatedUser: FirebaseUser | null = null
 
     try {
       if (mode === "signup") {
@@ -87,6 +101,7 @@ export function LoginForm() {
           formData.email,
           formData.password
         )
+        newlyCreatedUser = userCredential.user
 
         if (formData.name) {
           await updateProfile(userCredential.user, { displayName: formData.name })
@@ -124,7 +139,15 @@ export function LoginForm() {
           status: "completed",
         })
 
-        await handleAuthSuccess(userCredential.user)
+        await signOut(auth)
+        document.cookie = "firebase-auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax"
+        document.cookie = `${SESSION_ACTIVITY_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`
+        localStorage.removeItem(`${SESSION_ACTIVITY_STORAGE_PREFIX}${userCredential.user.uid}`)
+        sessionStorage.removeItem(AUTH_LOGIN_PENDING_KEY)
+        setMode("signin")
+        setFormData((current) => ({ ...current, password: "" }))
+        setSuccess("Your account is ready. Please sign in to continue.")
+        setLoading(false)
       } else {
         const userCredential = await signInWithEmailAndPassword(
           auth,
@@ -134,6 +157,17 @@ export function LoginForm() {
         await handleAuthSuccess(userCredential.user)
       }
     } catch (err: any) {
+      sessionStorage.removeItem(AUTH_LOGIN_PENDING_KEY)
+      if (newlyCreatedUser && auth.currentUser?.uid === newlyCreatedUser.uid) {
+        try {
+          await signOut(auth)
+        } catch (signOutError) {
+          console.error("Could not sign out after account setup failed:", signOutError)
+        }
+        document.cookie = "firebase-auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax"
+        document.cookie = `${SESSION_ACTIVITY_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`
+        localStorage.removeItem(`${SESSION_ACTIVITY_STORAGE_PREFIX}${newlyCreatedUser.uid}`)
+      }
       console.error("Firebase Auth Error Code:", err.code, err.message)
 
       let message = "Authentication failed."
@@ -182,6 +216,7 @@ export function LoginForm() {
             onClick={() => {
               setMode(m)
               setError(null)
+              setSuccess(null)
             }}
             className={cn(
               "rounded-lg py-2 text-sm font-medium transition-colors",
@@ -199,6 +234,13 @@ export function LoginForm() {
         <div className="mb-4 flex items-center gap-2 rounded-lg bg-destructive/15 p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {success && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg bg-green-500/15 p-3 text-sm text-green-600">
+          <CheckCircle className="h-4 w-4 shrink-0" />
+          <span>{success}</span>
         </div>
       )}
 

@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 
 import { auth } from "@/lib/firebase"
+import { SESSION_ACTIVITY_COOKIE, SESSION_ACTIVITY_STORAGE_PREFIX } from "@/lib/auth-session"
 import { getUserProfile, UserBankProfile } from "@/lib/user-profile"
 import { Button } from "@/components/ui/button"
 import { ProfileModal } from "@/components/dashboard/profile-modal"
@@ -84,6 +85,7 @@ export function Topbar({
 
   const handleLogout = async () => {
     try {
+      const userId = auth.currentUser?.uid
       await signOut(auth)
 
       document.cookie =
@@ -91,6 +93,11 @@ export function Topbar({
 
       document.cookie =
         "firebase-auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;"
+      document.cookie =
+        `${SESSION_ACTIVITY_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;`
+      if (userId) {
+        localStorage.removeItem(`${SESSION_ACTIVITY_STORAGE_PREFIX}${userId}`)
+      }
 
       router.push("/login")
       router.refresh()

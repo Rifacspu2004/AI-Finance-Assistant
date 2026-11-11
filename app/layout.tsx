@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Manrope, Inter } from 'next/font/google'
+import { SessionTimeout } from '@/components/auth/session-timeout'
 import './globals.css'
 
 const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope' })
@@ -50,6 +51,7 @@ export default function RootLayout({
       className={`bg-background ${manrope.variable} ${inter.variable}`}
     >
       <body className="antialiased" suppressHydrationWarning>
+        <SessionTimeout />
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
